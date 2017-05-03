@@ -52,13 +52,6 @@ void SetVector2DMagnitude(Vector2D * _ref_vector2d, float magnitude) {
 	_ref_vector2d->direction.x *= unit;
 	_ref_vector2d->direction.y *= unit;
 }
-Vector2D Moment(Object obj) {
-	Vector2D result;
-	result.direction.x = obj.velocity.direction.x * obj.mass;
-	result.direction.y = obj.velocity.direction.y * obj.mass;
-	result.magnitude = obj.mass * obj.velocity.magnitude;
-	return result;
-}
 void AddForce(Object * _ref_object, Vector2D force) {
 	float fx = _ref_object->mass * _ref_object->acceleration.direction.x;
 	float fy = _ref_object->mass * _ref_object->acceleration.direction.y;
@@ -70,7 +63,7 @@ void MakeCollision(Collision * collision) {
 	Object * a = collision->a;
 	Object * b = collision->b;
 	float dx = a->circle.center.x - b->circle.center.x;
-	float dy = a->circle.center.x - b->circle.center.x;
+	float dy = a->circle.center.y - b->circle.center.y;
 	float d = sqrt(dx*dx + dy*dy);
 	float nx = dx / d;
 	float ny = dy / d;
@@ -163,7 +156,7 @@ int main() {
 	display = al_create_display(1000,800);
 	
 	ALLEGRO_TIMER * timer;
-	timer = al_create_timer(0.01);
+	timer = al_create_timer(0.04);
 	al_start_timer(timer);
 	ALLEGRO_EVENT_QUEUE * queue = al_create_event_queue();
 	al_register_event_source(queue, al_get_timer_event_source(timer));
@@ -171,7 +164,7 @@ int main() {
 	Object * obj = NewObject();
 	SetVector2D(&obj->velocity, 0.5, -0.3);
 	SetVector2D(&obj->acceleration, 0.05, -0.03);
-	obj->friction = 0.0002;
+	obj->friction = 0.0004;
 	obj->circle.center.x = 50;
 	obj->circle.center.y = -50;
 	obj->circle.r = 10;
@@ -179,10 +172,10 @@ int main() {
 	Object * obj2 = NewObject();
 	SetVector2D(&obj2->velocity, -0.5, -0.3);
 	SetVector2D(&obj2->acceleration, -0.05, -0.03);
-	obj2->friction = 0.0004;
+	obj2->friction = 0.0002;
 	obj2->circle.center.x = 200;
 	obj2->circle.center.y = -50;
-	obj2->circle.r = 10;
+	obj2->circle.r = 20;
 	obj2->color = al_map_rgb(255, 0, 0);
 	while (1) {
 		ALLEGRO_EVENT e;
