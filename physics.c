@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <allegro5\allegro.h>
 #include <allegro5\allegro_primitives.h>
+#include <time.h>
 #include <math.h>
 #define g 9.78033
 #define GET(type,list,i)	*((type *) list.ArrayPointer + i)
@@ -39,6 +40,8 @@ typedef struct {
 } Collision;
 List ObjectList;
 List Collisions;
+float Width;
+float Height;
 void SetVector2D(Vector2D * _ref_vector2d, float x, float y) {
 	_ref_vector2d->direction.x = x;
 	_ref_vector2d->direction.y = y;
@@ -94,19 +97,37 @@ void SearchCollisions() {
 					isExist = true;
 				}
 			}
-			if (!isExist) {
-				collision = (Collision *)malloc(sizeof(Collision));
-				collision->a = oi;
-				collision->b = oj;
-				collision->status = false;
-				ADD(Collision *, Collisions, collision);
-			}
 			if (diff <= oi->circle.r + oj->circle.r) { 
+				if (!isExist) {
+					collision = (Collision *)malloc(sizeof(Collision));
+					collision->a = oi;
+					collision->b = oj;
+					collision->status = false;
+					ADD(Collision *, Collisions, collision);
+				}
 				if (!collision->status) MakeCollision(collision); 
 			}
-			else collision->status = false;
+			else { 
+				if (isExist) {
+					collision->status = false;
+				}
+			}
 			
 		}
+	}
+}
+void CheckScreenCrash(Object * _ref_object) {
+	if (_ref_object->circle.center.x + _ref_object->circle.r >= Width) {// Crash->Right
+		if (_ref_object->velocity.direction.x > 0) _ref_object->velocity.direction.x *= -1;
+	}
+	else if (_ref_object->circle.center.x - _ref_object->circle.r <= 0) {//Crash->Left
+		if (_ref_object->velocity.direction.x < 0) _ref_object->velocity.direction.x *= -1;
+	}
+	else if (_ref_object->circle.center.y - _ref_object->circle.r <= -Height) {//Crash->Bottom
+		if (_ref_object->velocity.direction.y < 0) _ref_object->velocity.direction.y *= -1;
+	}
+	else if (_ref_object->circle.center.y + _ref_object->circle.r >= 0) {//Crash->Top
+		if (_ref_object->velocity.direction.y > 0) _ref_object->velocity.direction.y *= -1;
 	}
 }
 void Move(Object * _ref_object) {
@@ -122,12 +143,10 @@ void Move(Object * _ref_object) {
 	}
 	if(_ref_object->acceleration.magnitude > 0)
 		SetVector2D(&_ref_object->velocity, _ref_object->velocity.direction.x + _ref_object->acceleration.direction.x, _ref_object->velocity.direction.y + _ref_object->acceleration.direction.y);
-	
 	if (_ref_object->velocity.magnitude > 0) {
 		_ref_object->circle.center.x += _ref_object->velocity.direction.x;
 		_ref_object->circle.center.y += _ref_object->velocity.direction.y;
 	}
-
 }
 Object * NewObject() {
 	Object * obj = (Object *)malloc(sizeof(Object));
@@ -150,42 +169,46 @@ void DrawObject(Object obj) {
 	al_draw_filled_circle(obj.circle.center.x, - obj.circle.center.y, obj.circle.r, obj.color);
 }
 int main() {
+	srand(time(NULL));
 	al_init();
 	al_init_primitives_addon();
 	ALLEGRO_DISPLAY * display;
-	display = al_create_display(1000,800);
+	Width = 1000;
+	Height = 800;
+	display = al_create_display(Width,Height);
 	
 	ALLEGRO_TIMER * timer;
-	timer = al_create_timer(0.04);
+	timer = al_create_timer(0.001);
 	al_start_timer(timer);
 	ALLEGRO_EVENT_QUEUE * queue = al_create_event_queue();
 	al_register_event_source(queue, al_get_timer_event_source(timer));
 	/* EXAMPLE START */
-	Object * obj = NewObject();
-	SetVector2D(&obj->velocity, 0.5, -0.3);
-	SetVector2D(&obj->acceleration, 0.05, -0.03);
-	obj->friction = 0.0004;
-	obj->circle.center.x = 50;
-	obj->circle.center.y = -50;
-	obj->circle.r = 10;
-
-	Object * obj2 = NewObject();
-	SetVector2D(&obj2->velocity, -0.5, -0.3);
-	SetVector2D(&obj2->acceleration, -0.05, -0.03);
-	obj2->friction = 0.0002;
-	obj2->circle.center.x = 200;
-	obj2->circle.center.y = -50;
-	obj2->circle.r = 20;
-	obj2->color = al_map_rgb(255, 0, 0);
+	for (int i = 0; i < 20; i++) {
+		Object * obj = NewObject();
+		float vx = -50 + rand() % 100;
+		float vy = -50 + rand() % 100;
+		SetVector2D(&obj->velocity, vx/100, vy/100);
+		obj->circle.center.x =  (float) (rand() % (int)Width);
+		obj->circle.center.y = -(float) (rand() % (int)Height);
+		obj->circle.r = 10 + rand() % 10;
+		obj->mass = obj->circle.r / 10;
+		int c = rand() % 3;
+		int c_r = (c == 0) ? 255 : 0;
+		int c_g = (c == 1) ? 255 : 0;
+		int c_b = (c == 2) ? 255 : 0;
+		obj->color = al_map_rgb(c_r, c_g, c_b);
+	}
 	while (1) {
 		ALLEGRO_EVENT e;
 		al_wait_for_event(queue, &e);
 		if (e.type == ALLEGRO_EVENT_TIMER) {
-			al_draw_filled_rectangle(0, 0, 1000, 800, al_map_rgb(111, 111, 111));
-			Move(obj);
-			Move(obj2);
-			DrawObject(*obj);
-			DrawObject(*obj2);
+			al_draw_filled_rectangle(0, 0, Width, Height, al_map_rgb(111, 111, 111));
+			for (int i = 0; i < ObjectList.Length; i++) {
+				Object * obj = GET(Object *, ObjectList, i);
+				Move(obj);
+				DrawObject(*obj);
+				CheckScreenCrash(obj);
+			}
 			SearchCollisions();
 			al_flip_display();
 		}
